@@ -1,0 +1,42 @@
+---
+title: "AnnaleCTP"
+author: "Rémy"
+date: "22 mai 2019"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1. Importer le fichier de données et effectuer une analyse statistique (statistiques descriptives et
+représentations graphiques) des différentes variables.s
+```{r}
+Data = read.table("incident.csv", header=TRUE, sep=';', dec=',')
+summary(Data)
+plot(Data$DATE_INCIDENT,Data$DATE_FRAGILE)
+```
+
+2. Peut-on affirmer au risque $\alpha = 5$% que la durée moyenne avant la survenance du premier incident
+de paiement est :
+— supérieure à 5 mois ?
+— inférieure à 7 mois ?
+En déduire un encadrement de la durée moyenne avant le premier incident de paiement. Donner
+un intervalle de confiance de niveau 95% de la durée moyenne avant la survenance du premier
+incident de paiement. Discuter.
+
+```{r}
+testnullite = function(x,sigma,alpha)
+{
+  i=0
+  S = (mean(x))/(sigma/sqrt(length(x)))
+  if((S > -qnorm(1-alpha/2)) && (S < qnorm(1-alpha/2)))
+    {i= 1}
+  return (i)
+}
+mean(na.omit(Data$DATE_INCIDENT))
+
+```

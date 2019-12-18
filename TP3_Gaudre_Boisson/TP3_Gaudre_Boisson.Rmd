@@ -1,0 +1,242 @@
+---
+title: "TP3_Gaudre_Boisson"
+author: "Gaudré Boisson"
+date: "16 mai 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+### 0.
+Obtention des données du fichier fiabilites.csv
+```{r}
+data <- read.table("sinistres.csv",head = TRUE ,dec=".", sep=",")
+```
+
+### 1.
+Générer et stocker dans une matrice 1000 échantillons de taille n = 30 à partir de la population de données initiale.
+```{r}
+echantillon = matrix(nrow = 1000,ncol = 30)
+set.seed(1234)
+for(i in 1:1000)
+  {echantillon[i,]= sample(data$montant,30)}
+```
+
+
+### 2.
+Écrire une fonction permettant d’effectuer un test de nullité de la moyenne. Cette fonction aura en paramètre un échantillon de données, l’écart-type $\sigma$ et le risque de première espèce $\alpha$ , et retournera 0 si H0 est rejetée et 1 sinon.
+
+Nous avons :
+\begin{itemize}
+\item X suit une loi normale
+\item "$H0 = 0$" et "$H1 \neq 0  $"
+\item $\sigma^2 = 60^2$
+\end{itemize}
+
+Donc on accepte $H0$ si $\frac{\overline{X}-m}{\frac{\sigma}{\sqrt{n}}} \in [-U_{1-\frac{\alpha]}{2}},U_{1-\frac{\alpha]}{2}}]$\newline
+
+```{r}
+
+testnullite = function(x,sigma,alpha)
+{
+  i=0
+  S = (mean(x))/(sigma/sqrt(length(x)))
+  if((S > -qnorm(1-alpha/2)) && (S < qnorm(1-alpha/2)))
+    {i= 1}
+  return (i)
+}
+
+```
+
+### 3.
+Parmi les $1000$ échantillons générés, combien de fois peut-on affirmer au risque de $\alpha = 5$% que l’indemnisation moyenne est différente de $650$ euros.
+
+Nous avons juste à appliquer la fonction créée à la question 2 :
+```{r}
+
+Test = apply(echantillon - 650 ,1,"testnullite",60,0.05)
+NbRejet = 1000 - sum(Test)
+NbRejet
+
+```
+Dans les échantillons que nous avons générer, nous pouvons affirmer dans 43 cas sur 1000 que la moyenne est différente de 650 euros au risque $\alpha = 5$%.
+
+
+### 4.
+Retrouver la formule explicite de la puissance de ce test. Écrire une fonction qui à partir de n, $\sigma$, $\alpha$ et de $\delta = \mu_1 - \mu_0$ (où $\mu_1$ est la “vrai” valeur de $\mu$ sous $H1$ ) calcule la puissance du test.
+
+Formule de la puissance de test : $1 - P_m (S \notin W) = 1 - P_m(\mu_1 - \frac{\sigma}{\sqrt{n}}u_{1-\frac{\alpha}{2}} \leq \overline{X}\leq \mu_1 + \frac{\sigma}{\sqrt{n}}u_{1-\frac{\alpha}{2}})$  
+Nous obtenons donc : $1 - P_m (S \notin W) = 1 - [F_{N(0,1)}(u_{1-\frac{\alpha}{2}}+\frac{\mu_1 - \mu_0}{\frac{\sigma}{\sqrt{n}}}) -  F_{N(0,1)}(-u_{1-\frac{\alpha}{2}}+\frac{\mu_1 - \mu_0}{\frac{\sigma}{\sqrt{n}}})]$
+
+```{r}
+puissancedeTest = function(n,sigma,alpha,delta)
+{
+  t = (delta)/(sigma/sqrt(n))
+  return (1-(pnorm(qnorm(1-alpha/2)+t) - pnorm(-qnorm(1-alpha/2)+t)))
+}
+
+puissancedeTest(30,60,0.05,mean(echantillon[1,])-650)
+
+```
+Pour un essais de moyenne selon le premier échantillon : la puissance de test atteint 27,9%. Nous ne pouvons donc pas rejeter $H_0$ avec un risque de deuxième espèce $\beta = 5$%.
+
+
+### 5.
+En fixant $\alpha = 5$% : Tracer la puissance du test pour $n \in \{30;50;100\}$ en fonctio de $\delta in [-50;50]$
+
+```{r}
+x<-seq(-50,50,0.1)
+matplot(x,cbind(puissancedeTest(30,60,0.05,x),puissancedeTest(50,60,0.05,x),puissancedeTest(100,60,0.05,x)),type="l",col=c("blue","red", "green"),ylab ="Puissance de test", xlab = "Différence de la moyenne réelle à la moyenne observée", lty = 1)
+legend("bottomright", c("n = 30", "n = 50","n = 100"),col=c("blue", "red", "green"),cex=1, lty = 1)
+
+```
+  
+On remarque que plus le nombre d'observation est élevé, plus la zone d'incertitude (ou de transition) est faible. Donc si la moyenne observée est écartée de la moyenne réelle moins on a de risque de se tromper si on rejette $H_0$. Et inversement, si l'écart est faible on a plus le risque de se tromper si on rejette $H_0$.  
+
+## 6.
+On suppose maintenant la variance inconnue.Refaire les questions 2–5 :  
+- En utilisant les formules explicites comme précédemment,  
+- En utilisant les fonctions t.test et power.t.test.  
+
+### Formules Explicites
+2.
+```{r}
+
+testnulliteVarInconnue = function(x,alpha)
+{
+  i=0
+  S = (mean(x))/(sqrt(var(x))/sqrt(length(x)))
+  if((S > -qt(1-alpha/2,length(x)-1)) && (S < qt(1-alpha/2,length(x)-1)))
+    {i= 1}
+  return (i)
+}
+```
+La variance corrigée est un estimateur sans biais de la variance. Donc, on utilise la variance corrigée à défaut d'utiliser la variance réelle comme la variance réelle est inconnue.
+
+3.
+```{r}
+NbRejetVarInconnue = 1000 - sum(apply(echantillon - 650 ,1,"testnulliteVarInconnue",0.05))
+NbRejetVarInconnue
+NbRejet
+```
+Nous obtenons plus de rejets de $H_0$ lorsque la variance est connue pour les échantillons que nous avons générés.
+
+4.
+```{r}
+puissancedeTestVarInconnue = function(n,sigma,alpha,delta)
+{
+  t = (delta)/(sigma/sqrt(n))
+  return (1-(pt(qt(1-alpha/2,n-1)+t,n-1) - pt(-qt(1-alpha/2,n-1)+t,n-1)))
+}
+
+puissancedeTest(30,60,0.05,mean(echantillon[1,])-650)
+puissancedeTestVarInconnue(30,sqrt(var(echantillon[1,])),0.05,mean(echantillon[1,])-650)
+```
+Pour le même échantillon, la puissance de test est plus élevée si l'on ne connais pas la variance. Cela veut dire que l'on est plus sûr de rejetter à raison $H_O$. La question 3 nous donne donc plus de rejets de $H_0$ lorsque la variance est inconnue, parce qu'on atteint plus rapidement un risque faible de se tromper l'orsque l'on rejette $H_0$.
+
+5.
+```{r}
+
+x<-seq(-50,50,0.1)
+matplot(x,cbind(puissancedeTest(30,60,0.05,x), puissancedeTestVarInconnue(30,sqrt(var(echantillon[1,])),0.05,x),puissancedeTest(50,60,0.05,x), puissancedeTestVarInconnue(50,sqrt(var(echantillon[1,])),0.05,x), puissancedeTest(100,60,0.05,x),puissancedeTestVarInconnue(100,sqrt(var(echantillon[1,])),0.05,x)),type="l",col=c("blue", "blue", "red", "red", "green", "green"),ylab = "Puissance de test", xlab = "Différence de la moyenne réelle à la moyenne observée",lty = c(1,2,1,2,1,2) )
+legend("bottomright", c("n = 30", "n = 30 (Variance Inconnue)", "n = 50", "n = 50 (Variance Inconnue)","n = 100", "n = 100 (Variance Inconnue)"),col=c("blue", "blue", "red", "red", "green", "green"),cex=0.7, lty = c(1,2,1,2,1,2))
+
+```
+  
+  Le graphique nous confirme la question 4. On peut voir qu'à une même taille d'échantillon donnée, on est plus sûr de rejetter $H_0$ à raison lorsque nous ne connaissons pas la variance.
+
+Cependant, le test à la variance inconnue se base sur une estimation de la variance via un petit échantillon. Donc si la variance du petit échantillon est inférieure à la variance réelle : le test sera de meilleure puissance, et inversement si la variance estimée est plus importante que la variance réelle.
+On pense toutefois, comme l'estimateur de la variance n'est pas biaisé, que le test aura une puissance de test qui se situera autour de la puissance du test à la variance connue.
+
+### Fonction t.test et power.t.test
+
+2.
+```{r}
+testnulliteVarInconnueT.test = function(x,alpha)
+{
+  i=0
+  S = t.test(x,conf.level = 1 - alpha)$statistic
+  if((S > t.test(x,conf.level = 1 - alpha)$conf.int[1]) && (S < t.test(x,conf.level = 1 - alpha)$conf.int[2]))
+    {i= 1}
+  return (i)
+}
+```
+La fonction t.test nous donne la statistique, ainsi que les bornes de l'intervalle de confiance.
+
+3.
+```{r}
+nbRejetVarianceInconnuet.test =1000 - sum(apply(echantillon - 650 ,1,"testnulliteVarInconnueT.test",0.05))
+nbRejetVarianceInconnuet.test
+NbRejetVarInconnue
+NbRejet
+
+```
+Nous obtenons moins de rejets avec la fonction t.test. La différence pourrait s'expliquer par une méthode différente pour calculer la statistique ou les bornes de l'intervalle de confiance.
+
+4.
+```{r}
+puissancedeTest(30,60,0.05,mean(echantillon[1,])-650)
+puissancedeTestVarInconnue(30,sqrt(var(echantillon[1,])),0.05,mean(echantillon[1,])-650)
+power.t.test(n=30, delta = mean(echantillon[1,])-650, sd = sqrt(var(echantillon[1,])), sig.level = 0.05)$power
+```
+On observe une puissance de test inférieure au 2 autres tests. Le test est donc moins sûr de rejetter à raison $H_0$.
+
+5.
+````{r}
+matplot(x,cbind(puissancedeTest(30,60,0.05,x), puissancedeTestVarInconnue(30,sqrt(var(echantillon[1,])),0.05,x), power.t.test(n=30, delta = x, sd = sqrt(var(echantillon[1,])), sig.level = 0.05)$power, puissancedeTest(50,60,0.05,x), puissancedeTestVarInconnue(50,sqrt(var(echantillon[1,])),0.05,x), power.t.test(n=50, delta = x, sd = sqrt(var(echantillon[1,])), sig.level = 0.05)$power, puissancedeTest(100,60,0.05,x),puissancedeTestVarInconnue(100,sqrt(var(echantillon[1,])),0.05,x), power.t.test(n=100, delta = x, sd = sqrt(var(echantillon[1,])), sig.level = 0.05)$power),type="l",col=c("blue", "blue", "black", "red", "red", "black", "green", "green", "black"),ylab = "Puissance de test", xlab = "Différence de la moyenne réelle à la moyenne observée",lty = c(1,2,4,1,2,3,1,2,3) )
+legend("bottomright", c("n = 30", "n = 30 (Variance Inconnue)", "n = 30 (t.test)", "n = 50", "n = 50 (Variance Inconnue)", "n = 50 (t.test)","n = 100", "n = 100 (Variance Inconnue)", "n = 100 (t.test)"),col=c("blue", "blue", "black", "red", "red", "black", "green", "green", "black"),cex=0.55, lty = c(1,2,4,1,2,4,1,2,4))
+
+```
+  
+Ceci est une comparaison des 3 tests sur le risque de deuxième espèce. Mais le graphe trop dense, nous enlevons le test à la variance inconnue qui change en fonction de l'échantillon de départ choisi :
+```{r}
+x<-seq(-50,50,0.1)
+matplot(x,cbind(puissancedeTest(30,60,0.05,x), power.t.test(n=30, delta = x, sd = sqrt(var(echantillon[1,])), sig.level = 0.05)$power, puissancedeTest(50,60,0.05,x), power.t.test(n=50, delta = x, sd = sqrt(var(echantillon[1,])), sig.level = 0.05)$power, puissancedeTest(100,60,0.05,x), power.t.test(n=100, delta = x, sd = sqrt(var(echantillon[1,])), sig.level = 0.05)$power),type="l",col=c("blue", "blue", "red", "red", "green", "green"),ylab = "Puissance de test", xlab = "Différence de la moyenne réelle à la moyenne observée",lty = c(1,2,1,2,1,2) )
+legend("bottomright", c("n = 30", "n = 30 (t.test)", "n = 50", "n = 50 (t.test)","n = 100", "n = 100 (t.test)"),col=c("blue", "blue", "red", "red", "green", "green"),cex=0.55, lty = c(1,2,1,2,1,2))
+```
+  
+Si nous comparons les valeurs obtenues de la fonction t.test avec les valeurs qui sont issues du test avec la variance inconnue. Nous voyons que la probabilité de rejeter $H_0$ à raison est forcément moins bonne avec la fonction t.test qu'avec le test à la variance connue. Ce qui nous donnerais plus l'envie d'utiliser le test avec la variance inconnue qui possède une meilleur puissance de test que t.test (alors que tous les 2 utilisent la même estimation de la variance).
+
+# 7.
+
+Calculer le nombre d’observations nécessaires pour que le risque de seconde espèce ne dépasse
+pas $\beta = 5$% pour $\delta = 10$.
+
+Nous savons que $n \geq \frac{sigma^2}{delta^2}(\mu_{1-\frac{\alpha}{2}}+\mu_{1 - \beta})^2$ pour une loi normale et un test bilatéral centré sur la moyenne.
+
+```{r}
+alpha = 0.05
+power = 1 - 0.05
+delta = 10
+```
+Avec la fonction power.t.test et la variance inconnue (utilisation d'une estimation de la variance avec un premier petit échantillon ou $n = 30$):
+
+```{r}
+power.t.test(n = NULL,delta = 10, sd = sqrt(var(echantillon[1,])),sig.level = alpha, power=power)$n
+```
+Avec la variance connue:
+```{r}
+nbobsmini = function(power,sigma,alpha,delta)
+{
+  return ((sigma**2/delta**2)*(qnorm(1-alpha/2)+qnorm(power))**2)
+}
+nbobsmini(power,60,alpha,delta)
+
+```
+Avec la variance inconnue (utilisation d'une estimation de la variance avec un premier petit échantillon ou n = 30):
+```{r}
+nbobsmini(power,sqrt(var(echantillon[1,])),alpha,delta)
+
+```
+Nous observons que le nombre d'observation nécessaire diffère selon la fonction utilisée. Le nombre d'observation nécessaire suit bien les résultats que nous avons obtenu aux questions précédentes. C'est à dire que la fonction t.test est moins efficace que le test avec la variance connue qui est aussi moins efficace que le test à la variance inconnue (pour notre estimation de la variance). Ce qui rend le nombre d'observations nécessaire plus grand pour atteindre un même niveau et une même puissance de test pour le test t.test et le test à la variance connue.
+
+Nous pouvons aussi vérifier nos résultats :
+```{r}
+power.t.test(n=658, delta = 10, sd = sqrt(var(echantillon[1,])), sig.level = 0.05)$power
+puissancedeTest(468,60,0.05,10)
+puissancedeTestVarInconnue(331,sqrt(var(echantillon[1,])),0.05,10)
+```
+Nous atteignons bien $beta = 5$% dans chacun des test. Les estimations de tailles d'échantillons sont donc correctes.
+(En prenant en compte que si l'on utilise un estimateur de la variance, ce n'est qu'une valeur approchée du n optimal qui est trouvé)
